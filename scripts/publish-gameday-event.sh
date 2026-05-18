@@ -27,7 +27,17 @@ if [[ -z "$topic_arn" || "$topic_arn" == "null" ]]; then
   exit 2
 fi
 
+if [[ ! "$topic_arn" =~ ^arn:aws[a-zA-Z-]*:sns:([^:]+):[0-9]{12}:.+ ]]; then
+  echo "sns_topic_arn is not a valid SNS topic ARN: $topic_arn" >&2
+  exit 2
+fi
+
+# SNS publish must call the same regional endpoint as the TopicArn. Do not rely on
+# the operator's default AWS CLI region, which may point at a different region.
+topic_region="${BASH_REMATCH[1]}"
+
 aws sns publish \
+  --region "$topic_region" \
   --topic-arn "$topic_arn" \
   --subject "AWS DR Gameday Lab" \
   --message "$message"
