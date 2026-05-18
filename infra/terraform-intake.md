@@ -2,12 +2,12 @@
 
 ## Detected app stack
 
-- Repository state: clean portfolio workspace with no application source yet.
-- Languages/frameworks: none detected.
-- Runtime model: static website hosted from S3 website endpoints.
-- Existing infra: none detected before this implementation.
+- Repository state: portfolio workspace for an AWS DR gameday lab.
+- Languages/frameworks: no application backend; static website demo content only.
+- Runtime model: S3 static website endpoints.
+- Existing infra: Terraform under `infra/`.
 
-Detection command:
+Detection command used during initial scaffold:
 
 ```bash
 python3 cloud_deploy_skill/skill/terraform-cloud-planner/scripts/detect_stack.py .
@@ -15,12 +15,12 @@ python3 cloud_deploy_skill/skill/terraform-cloud-planner/scripts/detect_stack.py
 
 ## Assumptions
 
-- This is a demo / portfolio DR lab, not production.
-- The lab must be low cost and safe to destroy.
-- No credentials are used and Terraform is not applied by this task.
+- This is a portfolio DR lab, not production.
+- The lab should demonstrate **S3 + SNS + CRR** as one complete project, not separate first/second versions.
+- No Route 53/domain is required for the current lab; endpoint failover is manual.
+- No credentials are committed; Terraform apply is an operator action.
 - Primary region defaults to `ap-northeast-1`; DR region defaults to `ap-southeast-1`.
-- Route 53, SNS, RDS, CloudFront, NAT Gateway, WAF, and paid monitoring are intentionally out of the default path.
-- S3 Cross-Region Replication (CRR) is optional and disabled by default because it can create extra request/storage cost.
+- RDS is documented as a different DR pattern, but not created by this S3 object replication lab.
 
 ## Selected cloud profile
 
@@ -33,8 +33,10 @@ python3 cloud_deploy_skill/skill/terraform-cloud-planner/scripts/detect_stack.py
 | Runtime | S3 static website |
 | Scale | Low-traffic demo content |
 | Availability | Primary + standby DR S3 buckets in two regions |
-| RTO target | Manual failover exercise target: 15 minutes |
-| RPO target | Without CRR: last manual sync; with CRR: S3 replication delay, typically minutes |
+| Notification | SNS topic, optional email subscription |
+| Replication | S3 CRR enabled by default |
+| RTO target | 10 minutes for manual endpoint failover |
+| RPO target | S3 replication delay, normally measured in minutes for small demo objects |
 
 ## Service inventory
 
@@ -42,44 +44,52 @@ Default resources:
 
 - Primary S3 bucket with website hosting, versioning, SSE-S3 encryption, and lifecycle rules.
 - DR S3 bucket with website hosting, versioning, SSE-S3 encryption, and lifecycle rules.
+- S3 Cross-Region Replication from primary bucket to DR bucket.
+- Delete marker replication disabled by default to protect the DR copy from accidental primary deletes.
+- IAM role and policy required for S3 replication.
+- SNS topic for DR gameday notifications.
+- Optional SNS email subscription when `notification_email` is set.
 - Public access controls and optional read-only bucket policies for website demos.
 
-Optional resources:
+Disabled by default:
 
-- IAM role and S3 replication configuration for CRR when `enable_crr = true`.
+- Route 53 failover records and health check, because there is currently no domain and health checks have extra cost.
+- RDS/Aurora resources, because database DR is a separate design from S3 object replication.
+- EC2, NAT Gateway, CloudFront, WAF.
 
 ## Sizing profile
 
-- Storage: demo-sized static assets only.
+- Storage: small demo static assets only.
 - Compute: none.
-- Database: none by default.
-- Logs/monitoring: not provisioned by default to avoid cost.
+- Database: none.
+- Notifications: one SNS topic; optional email subscription.
 
 ## Security and networking
 
 - Buckets use server-side encryption with S3-managed keys (`AES256`).
 - Bucket versioning is enabled to support rollback and replication prerequisites.
-- Public website read is disabled by default via `public_read_enabled = false`.
-- If public demo hosting is needed, set `public_read_enabled = true` and review content before applying.
+- Public website read is disabled by default via `public_read_enabled = false`; set it to `true` only for approved demo content.
 - No VPC, subnets, NAT, security groups, or internet gateways are required for S3 website hosting.
+- SNS email subscription requires recipient confirmation before email delivery.
 
 ## Cost guardrails
 
 - No always-on compute.
-- No NAT Gateway, RDS, CloudFront, WAF, or paid alarms by default.
+- No NAT Gateway, RDS, CloudFront, WAF, or paid Route 53 health check by default.
+- CRR creates cross-region replication requests, data transfer, and DR bucket storage cost; keep demo content small.
 - Lifecycle rules expire noncurrent object versions after `noncurrent_version_expiration_days` days.
-- Use `force_destroy = true` only for demo cleanup; set it to `false` if retaining evidence matters.
+- Use `force_destroy = true` for demo cleanup; set it to `false` if retaining evidence matters.
 
-## Terraform files to create/change
+## Terraform files
 
 - `infra/versions.tf` — Terraform and provider version constraints.
 - `infra/providers.tf` — primary AWS provider and DR alias provider.
-- `infra/variables.tf` — configurable names, regions, public access, lifecycle, and CRR flags.
-- `infra/main.tf` — S3 website buckets, versioning, lifecycle, encryption, optional policies, optional CRR.
-- `infra/outputs.tf` — bucket names, regions, website endpoints, and CRR status.
+- `infra/variables.tf` — configurable names, regions, public access, lifecycle, CRR, SNS, and optional Route 53 flags.
+- `infra/main.tf` — S3 website buckets, versioning, lifecycle, encryption, optional public policies, CRR, SNS, optional Route 53.
+- `infra/outputs.tf` — bucket names, regions, website endpoints, CRR/SNS status, SNS topic ARN.
 
-## Open questions
+## Operator decisions before apply
 
-- Confirm final AWS account naming convention before applying.
-- Confirm whether the demo should publicly expose static website content.
-- Confirm whether CRR should be enabled for a live gameday exercise.
+- Choose globally unique S3 bucket names.
+- Decide whether to expose demo content publicly via `public_read_enabled=true`.
+- Decide whether to set `notification_email` for SNS email subscription.

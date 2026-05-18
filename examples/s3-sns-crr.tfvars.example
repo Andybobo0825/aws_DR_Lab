@@ -1,0 +1,26 @@
+# Copy values into infra/terraform.tfvars or pass with -var flags.
+# Bucket names must be globally unique across all AWS accounts.
+
+primary_region = "ap-northeast-1"
+dr_region      = "ap-southeast-1"
+environment    = "portfolio"
+
+primary_bucket_name = "REPLACE_WITH_UNIQUE_NAME-primary"
+dr_bucket_name      = "REPLACE_WITH_UNIQUE_NAME-dr"
+
+# Required for direct S3 Website endpoint demo. Only upload public-safe demo content.
+public_read_enabled = true
+
+# Portfolio lab core: S3 + SNS + CRR.
+enable_crr               = true
+enable_sns_notifications = true
+replicate_delete_markers  = false
+
+# Optional: set your email, then confirm the subscription email from AWS SNS.
+notification_email = "your-email@example.com"
+
+# No domain required for this lab.
+enable_route53_failover = false
+
+# RDS is documented but not created by this S3 object DR lab.
+enable_rds_restore_demo = false

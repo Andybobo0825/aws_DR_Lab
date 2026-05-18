@@ -3,57 +3,61 @@
 ## 前置條件
 
 - Terraform 已建立 primary 與 DR S3 website buckets。
-- 已準備可公開展示的靜態內容。
+- `enable_crr=true`，CRR replication configuration 已建立。
+- `enable_sns_notifications=true`，SNS topic 已建立。
+- 若有設定 `notification_email`，email subscription 已在信箱中確認。
 - 若使用公開 website endpoint，已確認 `public_read_enabled=true` 的風險並只放 demo content。
-- 已記錄 Terraform outputs：primary endpoint、DR endpoint、bucket names。
+- 已記錄 Terraform outputs：primary endpoint、DR endpoint、bucket names、SNS topic ARN。
 
-## 日常備份 / 同步策略
+## 日常發布 / 同步策略
 
-### 最低成本模式（預設）
-
-1. 每次發布後同步到 primary bucket。
-2. 同步同一份內容到 DR bucket。
-3. 記錄發布時間與 commit SHA。
+1. 每次發布後同步內容到 primary bucket。
+2. 由 S3 CRR 自動複製到 DR bucket。
+3. 記錄發布時間、commit SHA、primary object version / ETag。
+4. 用 SNS 發送演練或發布通知。
 
 ```bash
 scripts/sync-site.sh ./site primary
-scripts/sync-site.sh ./site dr
+scripts/publish-gameday-event.sh "Deploy completed; waiting for CRR replication to DR bucket."
 ```
 
-### CRR 模式（選用）
+> CRR 只會複製啟用 replication 後的新物件或新版本；既有物件若要補複製，需要重新上傳或使用 S3 Batch Replication。
 
-1. 將 `enable_crr=true`。
-2. 確認 replication IAM role 與 bucket versioning。
-3. 發布到 primary 後觀察 DR bucket 是否完成複製。
-
-## 主站故障切換
+## 主站故障切換（無網域版）
 
 1. 宣告事件開始時間 `T0`。
-2. 執行 health check：
+2. 發送 SNS 通知：
+
+   ```bash
+   scripts/publish-gameday-event.sh "Gameday started: primary endpoint degraded; preparing manual failover to DR endpoint."
+   ```
+
+3. 執行 health check：
 
    ```bash
    scripts/check-endpoints.sh
    ```
 
-3. 若 primary 不可用，確認 DR endpoint 可用。
-4. 入口切換：
-   - 手動模式：把對外文件或 DNS CNAME 指到 DR endpoint。
-   - Route 53 模式：確認 failover record 已切到 secondary。
-5. 記錄恢復時間 `T1`，RTO = `T1 - T0`。
-6. 檢查內容版本，估算 RPO。
-7. 在 `docs/FAILOVER_TEST_REPORT.md` 填入結果。
+4. 若 primary 不可用，確認 DR endpoint 可用。
+   - 演練 region/site outage 時，不要用刪除 primary object 來模擬；若要測誤刪，請走 versioning rollback 情境。
+5. 將展示入口、文件連結、狀態頁或應用設定改指向 DR endpoint。
+6. 記錄恢復時間 `T1`，RTO = `T1 - T0`。
+7. 比對 DR content version / commit SHA，估算 RPO。
+8. 在 `docs/FAILOVER_TEST_REPORT.md` 填入結果。
 
 ## 回切 Primary
 
 1. 修復 primary content 或 region 問題。
-2. 用 `scripts/sync-site.sh` 將已知良好版本同步回 primary。
-3. health check primary endpoint。
+2. 確認 primary endpoint 回復。
+3. 若 DR 有更新，將已知良好版本同步回 primary。
 4. 將入口從 DR 切回 primary。
-5. 記錄回切時間與任何資料差異。
+5. 發送 SNS recover 通知。
+6. 記錄回切時間與任何資料差異。
 
 ## 事故後檢討
 
-- RTO 是否符合目標？
-- RPO 是否符合目標？
-- 哪個步驟需要自動化？
-- 是否需要啟用 CRR、Route 53 或 SNS？
+- RTO 是否符合 10 分鐘目標？
+- RPO 是否符合 CRR replication 延遲預期？
+- SNS 通知是否有送達？
+- 是否需要未來加入 Route 53 自動 failover？
+- 是否真的需要資料庫 DR？若需要，應另外設計 RDS snapshot/read replica，而不是套用 S3 CRR 邏輯。

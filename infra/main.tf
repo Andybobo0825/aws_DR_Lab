@@ -19,9 +19,9 @@ resource "aws_s3_bucket" "primary_site" {
   bucket        = local.primary_bucket_name
   force_destroy = var.force_destroy
 
-  tags = {
+  tags = merge(local.common_tags, {
     Role = "primary-static-site"
-  }
+  })
 }
 
 resource "aws_s3_bucket" "dr_site" {
@@ -29,9 +29,9 @@ resource "aws_s3_bucket" "dr_site" {
   bucket        = local.dr_bucket_name
   force_destroy = var.force_destroy
 
-  tags = {
+  tags = merge(local.common_tags, {
     Role = "dr-static-site"
-  }
+  })
 }
 
 resource "aws_s3_bucket_ownership_controls" "primary_site" {
@@ -236,6 +236,10 @@ resource "aws_iam_role" "replication" {
 
   name               = "${local.name_prefix}-s3-replication"
   assume_role_policy = data.aws_iam_policy_document.replication_assume_role[0].json
+
+  tags = merge(local.common_tags, {
+    Role = "s3-crr-replication"
+  })
 }
 
 data "aws_iam_policy_document" "replication" {
@@ -299,7 +303,7 @@ resource "aws_s3_bucket_replication_configuration" "primary_to_dr" {
     }
 
     delete_marker_replication {
-      status = "Enabled"
+      status = var.replicate_delete_markers ? "Enabled" : "Disabled"
     }
   }
 
@@ -315,9 +319,9 @@ resource "aws_sns_topic" "gameday" {
 
   name = "${local.name_prefix}-gameday"
 
-  tags = {
+  tags = merge(local.common_tags, {
     Role = "dr-gameday-notifications"
-  }
+  })
 }
 
 resource "aws_sns_topic_subscription" "gameday_email" {
@@ -338,10 +342,10 @@ resource "aws_route53_health_check" "primary_site" {
   failure_threshold = 3
   request_interval  = 30
 
-  tags = {
+  tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-primary-site"
     Role = "route53-failover-health-check"
-  }
+  })
 }
 
 resource "aws_route53_record" "primary_failover" {

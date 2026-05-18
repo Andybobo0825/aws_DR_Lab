@@ -9,20 +9,21 @@
 
 | 模式 | RTO 目標 | RPO 目標 | 說明 |
 | --- | --- | --- | --- |
-| 手動同步 + 手動切換 | 15 分鐘 | 上次成功同步時間 | 最低成本，適合 portfolio demo |
-| CRR + 手動切換 | 10 分鐘 | S3 replication 延遲，通常以分鐘計 | 增加同步可靠性，但有額外成本 |
-| CRR + Route 53 Failover | 5 分鐘 | S3 replication 延遲，通常以分鐘計 | 更接近半自動 DR，但 health check 付費 |
+| S3 + CRR + SNS + 手動切換 | 10 分鐘 | S3 replication 延遲，通常以分鐘計 | 不需要網域；用 DR endpoint 完成演練 |
+| S3 + CRR + SNS + Route 53 Failover | 5 分鐘 | S3 replication 延遲，通常以分鐘計 | 未來有網域時才啟用 |
 
 ## 量測方式
 
 1. 記錄故障宣告時間 `T0`。
-2. 記錄使用者可從 DR endpoint 取得首頁的時間 `T1`。
-3. RTO = `T1 - T0`。
-4. 比對 primary 與 DR 的 object version 或發布 commit SHA，估算 RPO。
+2. 發送 SNS gameday/failover 通知。
+3. 記錄使用者可從 DR endpoint 取得首頁的時間 `T1`。
+4. RTO = `T1 - T0`。
+5. 比對 primary 與 DR 的 object version、ETag 或發布 commit SHA，估算 RPO。
 
-## 取捨
+## S3 CRR 與 RDS DR 的差異
 
-- 最低成本模式最容易清理，但 RPO 取決於人工同步紀律。
-- CRR 可改善 RPO，但不是零延遲，也可能複製錯誤內容。
-- Route 53 failover 可縮短切換時間，但需要 hosted zone 與 health check 成本。
-- RDS snapshot/restore 適合下一階段演練；本 repo 預設不建立 RDS。
+- S3 CRR：object 層級複製，適合靜態檔案、圖片、前端 build artifact。
+- RDS Snapshot：備份點還原，RTO 通常較長，RPO 取決於最後 snapshot 時間。
+- RDS Read Replica / Aurora Global Database：更接近即時，但需要持續運行資料庫資源，成本較高。
+
+本作品集 Lab 會說明 RDS 差異，但 IaC 不建立 RDS，避免把低成本 DR Lab 變成資料庫維運專案。

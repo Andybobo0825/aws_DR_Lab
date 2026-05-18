@@ -47,3 +47,8 @@ output "rds_restore_demo_enabled" {
   description = "Documentation-only RDS restore exercise flag; this minimal lab does not create RDS resources."
   value       = var.enable_rds_restore_demo
 }
+
+output "sns_topic_arn" {
+  description = "SNS topic ARN for DR gameday notifications. Null when enable_sns_notifications=false."
+  value       = try(aws_sns_topic.gameday[0].arn, null)
+}

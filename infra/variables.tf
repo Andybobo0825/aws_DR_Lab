@@ -68,15 +68,21 @@ variable "noncurrent_version_expiration_days" {
 }
 
 variable "enable_crr" {
-  description = "Enable S3 Cross-Region Replication from primary to DR bucket. Disabled by default for minimum cost."
+  description = "Enable S3 Cross-Region Replication from primary to DR bucket. Enabled for this portfolio DR gameday lab to demonstrate RPO reduction."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "replication_prefix" {
   description = "Object prefix to replicate when CRR is enabled. Empty string replicates all objects."
   type        = string
   default     = ""
+}
+
+variable "replicate_delete_markers" {
+  description = "Replicate S3 delete markers to the DR bucket. Keep false for this DR lab so accidental primary deletes do not immediately remove the DR copy."
+  type        = bool
+  default     = false
 }
 
 variable "additional_tags" {
@@ -104,19 +110,19 @@ variable "failover_record_name" {
 }
 
 variable "enable_sns_notifications" {
-  description = "Create an optional SNS topic for gameday notifications. Disabled by default for minimum cost/noise."
+  description = "Create an SNS topic for gameday notifications. Enabled for this portfolio lab; set false only when you want the absolute minimum resource set."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "notification_email" {
-  description = "Optional email endpoint subscribed to the SNS gameday topic when enable_sns_notifications is true."
+  description = "Email endpoint subscribed to the SNS gameday topic when set. Leave null to create only the SNS topic and publish manually."
   type        = string
   default     = null
 }
 
 variable "enable_rds_restore_demo" {
-  description = "Documentation gate for RDS snapshot/restore exercises. No RDS resources are created by this minimal-cost S3 lab."
+  description = "Documentation gate for explaining RDS snapshot/restore DR differences. This S3+SNS+CRR lab does not create RDS resources."
   type        = bool
   default     = false
 }
