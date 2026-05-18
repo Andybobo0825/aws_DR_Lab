@@ -30,6 +30,19 @@ terraform -chdir=infra fmt -recursive -check
 terraform -chdir=infra validate
 ```
 
+
+## 作品集截圖清單
+
+建議在完成一次本地或 AWS demo 後，將以下截圖補到作品集頁面或本 README：
+
+1. **Terraform 驗證截圖**：`./scripts/terraform-check.sh` 顯示 `Success! The configuration is valid.`
+2. **Terraform Plan 截圖**：S3 Primary / DR bucket、versioning、lifecycle、optional CRR 狀態。
+3. **S3 Bucket 截圖**：Primary 與 DR bucket 的 Versioning / Lifecycle 設定。
+4. **網站端點截圖**：Primary endpoint 正常、DR endpoint 備援頁面正常。
+5. **Failover 演練截圖**：`scripts/check-endpoints.sh` 在切換前/切換後的輸出。
+6. **RTO/RPO 紀錄截圖**：`docs/FAILOVER_TEST_REPORT.md` 填寫完成後的演練結果。
+7. **可選擴充截圖**：若啟用 Route 53 failover，再補 Hosted Zone records 與 Health Check 狀態。
+
 ## 建議 Demo 流程
 
 1. 準備 `index.html` 與 `error.html`。
