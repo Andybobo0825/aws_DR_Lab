@@ -1,72 +1,41 @@
 # AWS DR Gameday Lab
 
-一個以 **AWS 災難復原演練** 為主題的作品集專案，目標不是做複雜系統，而是用最小成本清楚展示：
+這是一個低成本、可驗證的 AWS 災難復原（Disaster Recovery, DR）作品集專案。目標不是堆疊昂貴服務，而是用最小雲端資源展示 Cloud SA / DevOps 面試常問的可靠性設計：主站故障時怎麼切、RTO/RPO 怎麼定、演練結果如何留下證據。
 
-- 主站與 DR 站的設計思維
-- S3 靜態網站的版本控制與生命周期管理
-- 跨區備援與可切換性
-- RTO / RPO 的定義與驗證
-- 可被面試官快速理解的 DR runbook 與演練紀錄
+## 專案亮點
 
-## 專案重點
+- **Primary + DR 雙區域靜態網站**：Terraform 建立主站與備援 S3 Website bucket。
+- **版本控管與生命週期**：S3 Versioning + lifecycle 清理舊版本，兼顧復原與成本。
+- **可選 CRR**：S3 Cross-Region Replication 預設關閉，需要演練時再啟用。
+- **可選 DNS / 通知**：Route 53 Failover 與 SNS 預設關閉，避免健康檢查與通知資源產生成本。
+- **RDS 不預設建立**：RDS snapshot/restore 只在 Runbook 中保留擴充路徑，避免誤開資料庫費用。
+- **中文文件完整**：架構、Runbook、RTO/RPO、Failover 測試報告都有可直接展示的模板。
 
-- **主要架構**：兩個 AWS Region 的 S3 靜態網站 bucket
-- **備援策略**：預設以手動或半自動切換為主
-- **成本控制**：預設不啟用 Route 53 failover / SNS / RDS / CloudFront / NAT Gateway
-- **資料保護**：bucket versioning、lifecycle、SSE-S3
-- **可選擴充**：S3 CRR（預設關閉）
+## 目錄
 
-## 目前 Terraform 狀態
+```text
+infra/                  Terraform：S3 primary/DR、versioning、lifecycle、optional CRR/Route53/SNS
+docs/ARCHITECTURE.md    架構說明
+docs/DR_RUNBOOK.md      DR 演練步驟
+docs/RTO_RPO.md         RTO/RPO 設計
+docs/FAILOVER_TEST_REPORT.md  演練紀錄模板
+scripts/                本機輔助腳本，不會 terraform apply
+```
 
-`infra/` 內已提供最小可用的 Terraform 骨架，重點如下：
+## 快速開始（不套用雲端）
 
-- `infra/main.tf`：主站與 DR S3 bucket、versioning、lifecycle、可選 CRR
-- `infra/providers.tf`：primary / DR 雙 provider
-- `infra/variables.tf`：環境與成本參數
-- `infra/outputs.tf`：bucket 名稱、endpoint、CRR 狀態
-- `infra/terraform-intake.md`：Terraform 前置決策紀錄
+```bash
+terraform -chdir=infra init -backend=false
+terraform -chdir=infra fmt -recursive -check
+terraform -chdir=infra validate
+```
 
-## 文件索引
+## 建議 Demo 流程
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-- [`docs/DR_RUNBOOK.md`](docs/DR_RUNBOOK.md)
-- [`docs/RTO_RPO.md`](docs/RTO_RPO.md)
-- [`docs/FAILOVER_TEST_REPORT.md`](docs/FAILOVER_TEST_REPORT.md)
+1. 準備 `index.html` 與 `error.html`。
+2. `terraform plan` 檢查 primary / DR bucket 與輸出 endpoint。
+3. 若已建立資源，用 `scripts/sync-site.sh` 同步靜態檔到 primary 或 DR bucket。
+4. 用 `scripts/check-endpoints.sh` 記錄主站與 DR endpoint 狀態。
+5. 依 `docs/DR_RUNBOOK.md` 執行手動 failover 並填寫 `docs/FAILOVER_TEST_REPORT.md`。
 
-## 常用腳本
-
-- `scripts/terraform-check.sh`：格式化與 Terraform 靜態驗證
-- `scripts/dr-checklist.sh`：印出 DR 演練與驗收清單
-
-## 快速開始
-
-1. 檢查 Terraform：
-
-   ```bash
-   ./scripts/terraform-check.sh
-   ```
-
-2. 規劃資源（不會實際 apply）：
-
-   ```bash
-   terraform -chdir=infra plan
-   ```
-
-3. 依照文件進行 DR 演練：
-
-   - 先閱讀 `docs/DR_RUNBOOK.md`
-   - 再參考 `docs/RTO_RPO.md`
-   - 最後填寫 `docs/FAILOVER_TEST_REPORT.md`
-
-## 預設停用的擴充項
-
-以下能力是刻意保留為**預設停用**，避免增加成本與維運複雜度：
-
-- Route 53 failover
-- SNS 通知
-- RDS / 資料庫層
-- CloudFront
-- NAT Gateway
-- WAF
-
-如果要把此 repo 升級成更接近 production 的 DR 架構，再逐步打開這些能力即可。
+> 本 repo 不會自動 apply cloud，也不包含任何 AWS credentials。

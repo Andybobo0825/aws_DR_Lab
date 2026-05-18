@@ -1,53 +1,40 @@
-# Failover Test Report — AWS DR Gameday Lab
+# Failover Test Report
 
-## 狀態
-
-- [ ] 尚未實際執行
-- [x] 文件模板已建立
-
-## 基本資訊
+## 測試摘要
 
 | 欄位 | 內容 |
 | --- | --- |
-| 演練日期 | 待填 |
-| 演練人員 | 待填 |
-| 目標環境 | AWS DR Gameday Lab |
-| 入口模式 | S3 靜態網站 / 手動切換 |
-| Route 53 failover | 預設停用 |
-| SNS 通知 | 預設停用 |
-| RDS | 預設停用 |
+| 測試日期 | TBD |
+| 測試人員 | TBD |
+| Primary region | ap-northeast-1 |
+| DR region | ap-southeast-1 |
+| 模式 | 手動同步 / CRR / Route 53 Failover |
+| 入口 | S3 website endpoint / DNS |
 
-## 演練情境
+## 測試步驟
 
-- [ ] 主站 bucket 損毀
-- [ ] 主站區域不可用
-- [ ] 靜態檔案誤刪 / 誤改
-- [ ] CRR 延遲驗證
+1. 確認 primary 與 DR endpoint 初始狀態。
+2. 模擬 primary 不可用或宣告 primary 故障。
+3. 切換入口到 DR endpoint。
+4. 驗證首頁與錯誤頁可正常取得。
+5. 記錄 RTO / RPO。
+6. 回切 primary。
 
-## 預期結果
+## 結果
 
-- DR bucket 可正常提供網站內容
-- 可以在可接受時間內完成切換
-- 可清楚說明 RTO / RPO 是否達標
-- 可完成事後記錄與改進
+| 指標 | 目標 | 實測 | Pass/Fail |
+| --- | --- | --- | --- |
+| RTO | 15 分鐘 | TBD | TBD |
+| RPO | 上次同步時間 | TBD | TBD |
+| DR endpoint 可用性 | HTTP 200 | TBD | TBD |
+| 回切成功 | 是 | TBD | TBD |
 
-## 實際結果
+## 觀察與改善
 
-> 這一份文件是 template。請在實際演練後填入觀測結果。
+- TBD
 
-| 項目 | 結果 |
-| --- | --- |
-| 切換開始時間 | 待填 |
-| 切換完成時間 | 待填 |
-| 實際 RTO | 待填 |
-| 實際 RPO | 待填 |
-| 使用的回復方式 | 待填 |
-| 是否達標 | 待填 |
+## 證據
 
-## Observations / Lessons Learned
-
-- 待填
-
-## Follow-up Actions
-
-- 待填
+```text
+貼上 scripts/check-endpoints.sh 輸出、AWS CLI sync output、Terraform output 或截圖連結。
+```

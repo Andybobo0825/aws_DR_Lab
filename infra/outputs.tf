@@ -32,3 +32,18 @@ output "crr_enabled" {
   description = "Whether Cross-Region Replication is enabled."
   value       = var.enable_crr
 }
+
+output "route53_failover_enabled" {
+  description = "Whether optional Route 53 failover records are enabled."
+  value       = var.enable_route53_failover
+}
+
+output "sns_notifications_enabled" {
+  description = "Whether optional SNS gameday notifications are enabled."
+  value       = var.enable_sns_notifications
+}
+
+output "rds_restore_demo_enabled" {
+  description = "Documentation-only RDS restore exercise flag; this minimal lab does not create RDS resources."
+  value       = var.enable_rds_restore_demo
+}

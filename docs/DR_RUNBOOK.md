@@ -1,66 +1,59 @@
-# DR Runbook — AWS DR Gameday Lab
+# DR Runbook
 
-## 目的
+## 前置條件
 
-定義在主站異常、Region 不可用、或內容損毀時，如何把靜態網站服務切換到 DR 站。
+- Terraform 已建立 primary 與 DR S3 website buckets。
+- 已準備可公開展示的靜態內容。
+- 若使用公開 website endpoint，已確認 `public_read_enabled=true` 的風險並只放 demo content。
+- 已記錄 Terraform outputs：primary endpoint、DR endpoint、bucket names。
 
-## 前提
+## 日常備份 / 同步策略
 
-- 預設只有 S3 主站 / DR bucket
-- Route 53、SNS、RDS 預設**不啟用**
-- 如果 `enable_crr = true`，DR bucket 可能會比手動同步更接近主站內容
+### 最低成本模式（預設）
 
-## 演練前檢查
+1. 每次發布後同步到 primary bucket。
+2. 同步同一份內容到 DR bucket。
+3. 記錄發布時間與 commit SHA。
 
-- [ ] Terraform 狀態正常
-- [ ] primary / DR bucket 名稱確認
-- [ ] 需要演練的靜態內容已上傳到 primary bucket
-- [ ] `RTO_RPO.md` 已確認目標值
-- [ ] `FAILOVER_TEST_REPORT.md` 已準備好紀錄欄位
+```bash
+scripts/sync-site.sh ./site primary
+scripts/sync-site.sh ./site dr
+```
 
-## 主站故障時的切換步驟
+### CRR 模式（選用）
 
-1. 確認問題範圍：
-   - 是單一檔案損毀
-   - 還是整個 primary bucket / primary region 無法服務
-2. 檢查 DR bucket 是否有可用內容：
-   - 若啟用 CRR，先確認最後同步狀態
-   - 若未啟用 CRR，使用最近一次手動同步內容
-3. 啟動 DR 站：
-   - 使用 DR bucket website endpoint 或對應的 DNS 指向
-   - 如未使用 Route 53，則以手動切換入口為主
-4. 驗證網站：
-   - 首頁可讀取
-   - 錯誤頁可讀取
-   - 主要靜態資源可載入
-5. 記錄事件：
-   - 切換開始時間
-   - 切換完成時間
-   - 影響範圍
-   - 使用的恢復方法
+1. 將 `enable_crr=true`。
+2. 確認 replication IAM role 與 bucket versioning。
+3. 發布到 primary 後觀察 DR bucket 是否完成複製。
 
-## 資料回復步驟
+## 主站故障切換
 
-如果問題是「內容被誤刪 / 誤改」而不是 Region 故障：
+1. 宣告事件開始時間 `T0`。
+2. 執行 health check：
 
-1. 先確認 bucket versioning 是否已啟用
-2. 找回正確版本
-3. 恢復到 primary bucket
-4. 重新同步到 DR bucket
-5. 更新 failover test report
+   ```bash
+   scripts/check-endpoints.sh
+   ```
 
-## 回切步驟
+3. 若 primary 不可用，確認 DR endpoint 可用。
+4. 入口切換：
+   - 手動模式：把對外文件或 DNS CNAME 指到 DR endpoint。
+   - Route 53 模式：確認 failover record 已切到 secondary。
+5. 記錄恢復時間 `T1`，RTO = `T1 - T0`。
+6. 檢查內容版本，估算 RPO。
+7. 在 `docs/FAILOVER_TEST_REPORT.md` 填入結果。
 
-當 primary 恢復後：
+## 回切 Primary
 
-1. 確認 primary 服務健康
-2. 將新內容同步回 primary
-3. 如有 DNS / 入口切換，將流量切回 primary
-4. 再次驗證網站功能
-5. 完成 post-incident notes
+1. 修復 primary content 或 region 問題。
+2. 用 `scripts/sync-site.sh` 將已知良好版本同步回 primary。
+3. health check primary endpoint。
+4. 將入口從 DR 切回 primary。
+5. 記錄回切時間與任何資料差異。
 
-## 演練結束輸出
+## 事故後檢討
 
-- `FAILOVER_TEST_REPORT.md`：實際演練結果
-- `RTO_RPO.md`：如有必要，根據實測結果修正目標
-- README / 架構圖：如有新設計再同步更新
+- RTO 是否符合目標？
+- RPO 是否符合目標？
+- 哪個步驟需要自動化？
+- 是否需要啟用 CRR、Route 53 或 SNS？

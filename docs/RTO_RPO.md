@@ -1,35 +1,28 @@
-# RTO / RPO — AWS DR Gameday Lab
+# RTO / RPO 設計
 
 ## 定義
 
-- **RTO (Recovery Time Objective)**：服務可以接受的最大恢復時間
-- **RPO (Recovery Point Objective)**：服務可以接受的最大資料遺失量 / 資料時間差
+- **RTO（Recovery Time Objective）**：服務中斷後，可接受多久內恢復。
+- **RPO（Recovery Point Objective）**：災難發生時，可接受遺失多久內的資料或更新。
 
-## 本專案的預設目標
+## 本 Lab 目標
 
-| 情境 | RTO | RPO | 說明 |
+| 模式 | RTO 目標 | RPO 目標 | 說明 |
 | --- | --- | --- | --- |
-| 預設手動切換 | 15 分鐘內 | 最後一次手動同步點 | 最低成本、最容易展示 |
-| 啟用 S3 CRR | 15 分鐘內 | 幾分鐘內（視 replication delay） | 更接近自動化 DR |
-| 僅內容誤刪 / 誤改 | 10 分鐘內 | 近乎即時（視 version restore） | 透過 versioning 回復 |
+| 手動同步 + 手動切換 | 15 分鐘 | 上次成功同步時間 | 最低成本，適合 portfolio demo |
+| CRR + 手動切換 | 10 分鐘 | S3 replication 延遲，通常以分鐘計 | 增加同步可靠性，但有額外成本 |
+| CRR + Route 53 Failover | 5 分鐘 | S3 replication 延遲，通常以分鐘計 | 更接近半自動 DR，但 health check 付費 |
 
-## 目標設定原則
+## 量測方式
 
-- **先清楚界定展示目的，再決定數字**
-- 作品集版本以「可理解、可驗證、低成本」優先
-- 若未啟用 Route 53 / SNS / RDS，RTO / RPO 只針對靜態網站與內容回復
+1. 記錄故障宣告時間 `T0`。
+2. 記錄使用者可從 DR endpoint 取得首頁的時間 `T1`。
+3. RTO = `T1 - T0`。
+4. 比對 primary 與 DR 的 object version 或發布 commit SHA，估算 RPO。
 
-## 驗證方式
+## 取捨
 
-- 以手動切換紀錄實際 RTO
-- 以同步延遲或版本還原時間評估 RPO
-- 每次演練後更新 `FAILOVER_TEST_REPORT.md`
-
-## 建議調整時機
-
-當你之後要把這個專案升級成更接近 production 的版本時，再重新調整：
-
-- 入口層是否改成 Route 53 failover
-- 是否需要 SNS 通知
-- 是否加入資料層（例如 RDS）
-- 是否需要更嚴格的 RPO 指標
+- 最低成本模式最容易清理，但 RPO 取決於人工同步紀律。
+- CRR 可改善 RPO，但不是零延遲，也可能複製錯誤內容。
+- Route 53 failover 可縮短切換時間，但需要 hosted zone 與 health check 成本。
+- RDS snapshot/restore 適合下一階段演練；本 repo 預設不建立 RDS。

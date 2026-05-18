@@ -309,3 +309,72 @@ resource "aws_s3_bucket_replication_configuration" "primary_to_dr" {
     aws_s3_bucket_versioning.dr_site
   ]
 }
+
+resource "aws_sns_topic" "gameday" {
+  count = var.enable_sns_notifications ? 1 : 0
+
+  name = "${local.name_prefix}-gameday"
+
+  tags = {
+    Role = "dr-gameday-notifications"
+  }
+}
+
+resource "aws_sns_topic_subscription" "gameday_email" {
+  count = var.enable_sns_notifications && var.notification_email != null ? 1 : 0
+
+  topic_arn = aws_sns_topic.gameday[0].arn
+  protocol  = "email"
+  endpoint  = var.notification_email
+}
+
+resource "aws_route53_health_check" "primary_site" {
+  count = var.enable_route53_failover ? 1 : 0
+
+  fqdn              = aws_s3_bucket_website_configuration.primary_site.website_endpoint
+  port              = 80
+  type              = "HTTP"
+  resource_path     = "/index.html"
+  failure_threshold = 3
+  request_interval  = 30
+
+  tags = {
+    Name = "${local.name_prefix}-primary-site"
+    Role = "route53-failover-health-check"
+  }
+}
+
+resource "aws_route53_record" "primary_failover" {
+  count = var.enable_route53_failover ? 1 : 0
+
+  zone_id = var.route53_zone_id
+  name    = var.failover_record_name
+  type    = "CNAME"
+  ttl     = 60
+
+  set_identifier = "primary"
+
+  failover_routing_policy {
+    type = "PRIMARY"
+  }
+
+  health_check_id = aws_route53_health_check.primary_site[0].id
+  records         = [aws_s3_bucket_website_configuration.primary_site.website_endpoint]
+}
+
+resource "aws_route53_record" "dr_failover" {
+  count = var.enable_route53_failover ? 1 : 0
+
+  zone_id = var.route53_zone_id
+  name    = var.failover_record_name
+  type    = "CNAME"
+  ttl     = 60
+
+  set_identifier = "dr"
+
+  failover_routing_policy {
+    type = "SECONDARY"
+  }
+
+  records = [aws_s3_bucket_website_configuration.dr_site.website_endpoint]
+}

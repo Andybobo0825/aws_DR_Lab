@@ -84,3 +84,39 @@ variable "additional_tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "enable_route53_failover" {
+  description = "Create optional Route 53 DNS failover records and a primary website health check. Disabled by default because health checks are paid resources."
+  type        = bool
+  default     = false
+}
+
+variable "route53_zone_id" {
+  description = "Hosted zone ID for optional Route 53 failover records. Required only when enable_route53_failover is true."
+  type        = string
+  default     = null
+}
+
+variable "failover_record_name" {
+  description = "DNS record name for optional Route 53 failover, for example www.example.com. Required only when enable_route53_failover is true."
+  type        = string
+  default     = null
+}
+
+variable "enable_sns_notifications" {
+  description = "Create an optional SNS topic for gameday notifications. Disabled by default for minimum cost/noise."
+  type        = bool
+  default     = false
+}
+
+variable "notification_email" {
+  description = "Optional email endpoint subscribed to the SNS gameday topic when enable_sns_notifications is true."
+  type        = string
+  default     = null
+}
+
+variable "enable_rds_restore_demo" {
+  description = "Documentation gate for RDS snapshot/restore exercises. No RDS resources are created by this minimal-cost S3 lab."
+  type        = bool
+  default     = false
+}
