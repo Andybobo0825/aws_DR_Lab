@@ -1,0 +1,22 @@
+# macOS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Terraform local state and generated files
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+*.tfplan
+crash.log
+crash.*.log
+
+# Local OMX/runtime artifacts
+.omx/
+
+# Local helper skill source; used during generation, not part of portfolio repo
+cloud_deploy_skill/
