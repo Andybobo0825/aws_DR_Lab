@@ -1,6 +1,6 @@
 # AWS DR Gameday Lab
 
-這是一個以 **S3 + SNS + CRR** 為核心的 AWS 災難復原（Disaster Recovery, DR）作品集專案。目標是用低成本、可驗證、可清除的雲端資源展示 Cloud SA / DevOps 面試常問的可靠性設計：主站故障時怎麼切、RTO/RPO 怎麼定、同步與通知怎麼設計、演練結果如何留下證據。
+這是一個以 **S3 + SNS + CRR** 為核心的 AWS 災難復原（Disaster Recovery, DR）作品集專案。目標是用低成本、可驗證、可清除的雲端資源展示 Cloud SA / DevOps 面試常問的可靠性設計：主站故障時怎麼切、RTO/RPO 怎麼定、演練結果如何留下證據。
 
 本 Lab 不需要自有網域；演練時以 **Primary S3 website endpoint** 與 **DR S3 website endpoint** 完成手動 failover。
 
@@ -23,30 +23,6 @@ docs/FAILOVER_TEST_REPORT.md  演練紀錄
 docs/screenshots/       演練截圖證據
 scripts/                本機與 AWS CLI 輔助腳本
 ```
-
-## 快速檢查（不套用雲端）
-
-```bash
-./scripts/terraform-check.sh
-```
-
-成功時會看到 Terraform validate 成功，這張可以當作品集截圖。
-
-## 實作步驟總覽
-
-1. `./scripts/terraform-check.sh`
-2. `./scripts/render-demo-site.sh ./site`
-3. 複製 `examples/s3-sns-crr.tfvars.example` 的值，填入唯一 bucket 名稱與 email
-4. `terraform -chdir=infra plan`
-5. `terraform -chdir=infra apply`
-6. 確認 SNS email subscription
-7. `scripts/sync-site.sh ./site primary`
-8. 等待 CRR 複製到 DR bucket，並用 AWS Console/CLI 驗證
-9. `scripts/check-endpoints.sh`
-10. 封鎖 primary public access 模擬 primary website access failure
-11. 改用 DR endpoint，記錄 RTO/RPO
-12. 恢復 primary public access
-13. `terraform -chdir=infra destroy` 清除資源
 
 ## 演練結果摘要
 
