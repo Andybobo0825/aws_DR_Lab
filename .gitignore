@@ -20,3 +20,6 @@ crash.*.log
 
 # Local helper skill source; used during generation, not part of portfolio repo
 cloud_deploy_skill/
+
+# Generated local demo site
+site/
