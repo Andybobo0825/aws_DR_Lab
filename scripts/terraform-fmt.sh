@@ -2,4 +2,4 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-terraform -chdir="$ROOT/infra" fmt -recursive
+terraform -chdir="$ROOT/infra" fmt -recursive "$@"
