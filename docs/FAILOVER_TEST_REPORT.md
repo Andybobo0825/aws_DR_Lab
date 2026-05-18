@@ -1,50 +1,53 @@
-# Failover Test Report
+# Failover Test Report — AWS DR Gameday Lab
 
-## 測試目的
+## 狀態
 
-驗證 AWS DR Gameday Lab 在 primary 故障或內容失效時，是否能按照 Runbook 完成切換與回復。
+- [ ] 尚未實際執行
+- [x] 文件模板已建立
 
-## 測試範圍
-
-- S3 static website primary bucket
-- S3 static website DR bucket
-- versioning
-- lifecycle
-- optional CRR
-- optional DNS / Route 53 failover（預設未啟用）
-
-## 測試結果模板
+## 基本資訊
 
 | 欄位 | 內容 |
 | --- | --- |
-| 測試日期 | 待填 |
-| 測試者 | 待填 |
-| 測試模式 | 無 CRR / 有 CRR |
-| 觸發事件 | 待填 |
-| primary 狀態 | 待填 |
-| DR 狀態 | 待填 |
-| 切換方式 | 待填 |
-| RTO | 待填 |
-| RPO | 待填 |
-| 結果 | PASS / FAIL |
+| 演練日期 | 待填 |
+| 演練人員 | 待填 |
+| 目標環境 | AWS DR Gameday Lab |
+| 入口模式 | S3 靜態網站 / 手動切換 |
+| Route 53 failover | 預設停用 |
+| SNS 通知 | 預設停用 |
+| RDS | 預設停用 |
 
-## 建議驗證項目
+## 演練情境
 
-- DR website endpoint 可打開。
-- 切換後首頁內容正確。
-- versioning 保留了可回復版本。
-- lifecycle 不會過度清理最近版本。
-- CRR 啟用時，DR bucket 能收到新版本。
+- [ ] 主站 bucket 損毀
+- [ ] 主站區域不可用
+- [ ] 靜態檔案誤刪 / 誤改
+- [ ] CRR 延遲驗證
 
-## 待補證據
+## 預期結果
 
-- Terraform plan 輸出截圖
-- primary bucket 設定截圖
-- DR bucket 設定截圖
-- failover 切換截圖
-- 演練時間紀錄
+- DR bucket 可正常提供網站內容
+- 可以在可接受時間內完成切換
+- 可清楚說明 RTO / RPO 是否達標
+- 可完成事後記錄與改進
 
-## 結論範例
+## 實際結果
 
-> PASS：依照 DR Runbook 將內容切換到 DR site，網站在目標時間內恢復可用，RTO / RPO 均有紀錄。
+> 這一份文件是 template。請在實際演練後填入觀測結果。
 
+| 項目 | 結果 |
+| --- | --- |
+| 切換開始時間 | 待填 |
+| 切換完成時間 | 待填 |
+| 實際 RTO | 待填 |
+| 實際 RPO | 待填 |
+| 使用的回復方式 | 待填 |
+| 是否達標 | 待填 |
+
+## Observations / Lessons Learned
+
+- 待填
+
+## Follow-up Actions
+
+- 待填

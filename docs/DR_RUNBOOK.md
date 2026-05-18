@@ -2,65 +2,65 @@
 
 ## 目的
 
-在 primary site 無法使用時，快速把靜態網站切到 DR site，並保留可驗證的切換記錄。
+定義在主站異常、Region 不可用、或內容損毀時，如何把靜態網站服務切換到 DR 站。
 
-## 前置條件
+## 前提
 
-- Terraform 已建立 primary / DR buckets。
-- 內容已部署到 primary，若啟用 CRR，DR 會自動同步。
-- 已確認網站內容符合對外展示要求。
+- 預設只有 S3 主站 / DR bucket
+- Route 53、SNS、RDS 預設**不啟用**
+- 如果 `enable_crr = true`，DR bucket 可能會比手動同步更接近主站內容
 
-## 演練模式
+## 演練前檢查
 
-### 模式 A：無 CRR
+- [ ] Terraform 狀態正常
+- [ ] primary / DR bucket 名稱確認
+- [ ] 需要演練的靜態內容已上傳到 primary bucket
+- [ ] `RTO_RPO.md` 已確認目標值
+- [ ] `FAILOVER_TEST_REPORT.md` 已準備好紀錄欄位
 
-1. 確認 primary 站點目前內容版本。
-2. 將 primary 內容複製到 DR：
-   - 使用 `aws s3 sync` 或人工複製流程。
-3. 驗證 DR website endpoint 可讀。
-4. 若有 DNS 層切換，再更新 Route 53 或手動切換入口。
-5. 記錄切換時間與差異。
+## 主站故障時的切換步驟
 
-### 模式 B：有 CRR
+1. 確認問題範圍：
+   - 是單一檔案損毀
+   - 還是整個 primary bucket / primary region 無法服務
+2. 檢查 DR bucket 是否有可用內容：
+   - 若啟用 CRR，先確認最後同步狀態
+   - 若未啟用 CRR，使用最近一次手動同步內容
+3. 啟動 DR 站：
+   - 使用 DR bucket website endpoint 或對應的 DNS 指向
+   - 如未使用 Route 53，則以手動切換入口為主
+4. 驗證網站：
+   - 首頁可讀取
+   - 錯誤頁可讀取
+   - 主要靜態資源可載入
+5. 記錄事件：
+   - 切換開始時間
+   - 切換完成時間
+   - 影響範圍
+   - 使用的恢復方法
 
-1. 確認 primary bucket replication 狀態正常。
-2. 等待 DR bucket 接收最新版本。
-3. 驗證 DR website endpoint 可讀。
-4. 若有 DNS 層切換，再更新入口流量。
-5. 驗證版本與內容一致性。
+## 資料回復步驟
 
-## 建議切換步驟
+如果問題是「內容被誤刪 / 誤改」而不是 Region 故障：
 
-- [ ] 宣告進入 DR 演練
-- [ ] 停止或隔離 primary 的變更來源
-- [ ] 驗證 DR 內容最新
-- [ ] 切換入口指向 DR
-- [ ] 驗證首頁與錯誤頁
-- [ ] 紀錄 RTO / RPO
-- [ ] 整理演練結果
+1. 先確認 bucket versioning 是否已啟用
+2. 找回正確版本
+3. 恢復到 primary bucket
+4. 重新同步到 DR bucket
+5. 更新 failover test report
 
-## 回復步驟
+## 回切步驟
 
-1. 確認 primary 站點恢復。
-2. 讓 primary 重新成為內容寫入來源。
-3. 必要時把 DR 的最後狀態同步回 primary。
-4. 重新驗證網站。
+當 primary 恢復後：
 
-## 成功標準
+1. 確認 primary 服務健康
+2. 將新內容同步回 primary
+3. 如有 DNS / 入口切換，將流量切回 primary
+4. 再次驗證網站功能
+5. 完成 post-incident notes
 
-- DR endpoint 可正常回應。
-- 內容可讀，且版本符合預期。
-- 切換流程可在文件中重複執行。
-- RTO / RPO 可被量化與回報。
+## 演練結束輸出
 
-## 測試紀錄欄位
-
-- 日期：
-- 測試模式：
-- 觸發原因：
-- 切換完成時間：
-- RTO：
-- RPO：
-- 結果：
-- 後續改善：
-
+- `FAILOVER_TEST_REPORT.md`：實際演練結果
+- `RTO_RPO.md`：如有必要，根據實測結果修正目標
+- README / 架構圖：如有新設計再同步更新

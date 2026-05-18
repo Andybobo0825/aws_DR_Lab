@@ -1,68 +1,58 @@
-# 架構說明 — AWS DR Gameday Lab
+# Architecture — AWS DR Gameday Lab
 
-## 目標
+## 設計目標
 
-本專案用最低成本展示 AWS 災難復原設計，核心不是把架構做大，而是把 **備援思維、資料保護、切換流程** 說清楚。
+這個作品集的重點是用**最低成本**呈現 AWS DR 的核心能力：
 
-## 架構總覽
+- 主站與備援站的概念分離
+- 靜態網站資料的保護與回復
+- 以文件化方式描述 RTO / RPO 與切換流程
+- 讓面試官可以快速看懂「如果 Region 壞掉怎麼辦」
 
-- **Primary Region**：預設 `ap-northeast-1`
-- **DR Region**：預設 `ap-southeast-1`
-- **工作負載**：S3 靜態網站
-- **主要資源**：
-  - primary S3 bucket
-  - DR S3 bucket
-  - bucket versioning
-  - lifecycle policy
-  - optional CRR
+## 預設架構
 
-## 設計原則
+```text
+User
+  -> S3 static website (primary)
+  -> S3 static website (DR)
+```
 
-1. **低成本優先**
-   - 不預設建立 NAT Gateway、ALB、CloudFront、RDS、SNS、Route 53。
-   - 只有在明確需要演示時，才啟用額外元件。
+### 核心元件
 
-2. **備援可展示**
-   - Primary bucket 與 DR bucket 採相同命名規則與設定。
-   - 透過 versioning 保留物件版本，降低誤刪風險。
-   - 透過 lifecycle 控制歷史版本的成本。
+- **Primary S3 bucket**：主站靜態網站 bucket
+- **DR S3 bucket**：跨區備援 bucket
+- **Versioning**：保留歷史版本，方便回復
+- **Lifecycle**：控制 noncurrent versions 成本
+- **SSE-S3**：啟用 AWS 管理金鑰加密
+- **Optional CRR**：預設關閉，僅在需要近即時複寫時打開
 
-3. **CRR 可選**
-   - `enable_crr = false` 為預設。
-   - 啟用 CRR 後，primary 會把物件複寫到 DR bucket。
-   - 這讓作品集同時保留「最低成本」與「更強 DR 能力」兩種展示路線。
+## 預設停用的擴充
 
-## 資料保護策略
+這些能力在這個版本中**不啟用**，只保留為未來升級路徑：
 
-- **Versioning**：保留歷史版本，支援回復。
-- **Lifecycle**：清理過舊 noncurrent versions，避免 demo 成本無限制成長。
-- **SSE-S3**：使用 S3 管理的加密，避免額外 KMS 成本。
+- Route 53 failover
+- SNS 通知
+- RDS / 資料庫
+- CloudFront
+- NAT Gateway / private network design
 
-## 切換思路
+原因：
 
-### 無 CRR
+1. 作品集主題是 DR 演練，不是做一個完整企業 landing zone
+2. 成本與操作複雜度要維持在低水平
+3. 先把 RTO / RPO、runbook、驗證報告做完整，比多堆資源更有展示效果
 
-- 主站資料以手動同步為主。
-- 測試時可用 `aws s3 sync` 或等效工具把內容從 primary 複製到 DR。
-- RPO 取決於最後一次同步時間。
+## Terraform 對應
 
-### 有 CRR
+- `infra/main.tf`：S3 資源、公開讀取政策、CRR 條件式資源
+- `infra/providers.tf`：primary 與 DR provider
+- `infra/variables.tf`：環境、區域、成本與切換參數
+- `infra/outputs.tf`：供文件與 demo 使用的輸出值
 
-- primary bucket 變更會自動複寫到 DR bucket。
-- 仍需用 Runbook 定義 DNS 或流量切換步驟。
-- 適合展示更成熟的 DR 能力。
+## 建議演進路線
 
-## 預設停用的擴充元件
-
-- **Route 53 failover**：需域名與健康檢查，且會增加持續成本。
-- **SNS**：可做通知，但不是最低成本核心。
-- **RDS**：資料庫復原演練可作為後續擴充，不列入預設路徑。
-
-## Terraform 主要設定點
-
-- `infra/terraform-intake.md`
-- `infra/providers.tf`
-- `infra/variables.tf`
-- `infra/main.tf`
-- `infra/outputs.tf`
-
+1. 先完成文件與最小 Terraform
+2. 製作簡單 static site 內容
+3. 需要展示 failover 時，再加 Route 53
+4. 需要演示通知流程時，再加 SNS
+5. 需要示範資料層 DR 時，再補 RDS snapshot / restore
