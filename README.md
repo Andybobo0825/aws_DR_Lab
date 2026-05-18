@@ -2,7 +2,7 @@
 
 這是一個以 **S3 + SNS + CRR** 為核心的 AWS 災難復原（Disaster Recovery, DR）作品集專案。目標是用低成本、可驗證、可清除的雲端資源展示 Cloud SA / DevOps 面試常問的可靠性設計：主站故障時怎麼切、RTO/RPO 怎麼定、同步與通知怎麼設計、演練結果如何留下證據。
 
-> 本 Lab **不需要 Route 53 或自有網域**。沒有網域時，failover 以 Primary S3 website endpoint 與 DR S3 website endpoint 的手動切換來展示。
+本 Lab 不需要自有網域；演練時以 **Primary S3 website endpoint** 與 **DR S3 website endpoint** 完成手動 failover。
 
 ## 專案亮點
 
@@ -10,18 +10,17 @@
 - **CRR 跨區複製**：S3 Cross-Region Replication 預設啟用，用來展示 RPO 降低；delete marker replication 預設關閉，避免誤刪立刻同步到 DR。
 - **SNS 通知**：SNS Topic 預設建立；可填入 `notification_email` 建立 email subscription。
 - **版本控管與生命週期**：S3 Versioning + lifecycle 清理舊版本，兼顧復原與成本。
-- **無網域也能演練**：Route 53 Failover 保留為可選擴充，預設關閉。
-- **RDS 不建立**：RDS snapshot/restore 與 S3 CRR 是不同 DR 模型，本 Lab 聚焦 S3 object/static site DR，避免資料庫成本。
 - **中文文件完整**：架構、Runbook、RTO/RPO、Failover 測試報告都有可直接展示的模板。
 
 ## 目錄
 
 ```text
-infra/                  Terraform：S3 primary/DR、versioning、lifecycle、CRR、SNS、optional Route53
+infra/                  Terraform：S3 primary/DR、versioning、lifecycle、CRR、SNS
 docs/ARCHITECTURE.md    架構說明
 docs/DR_RUNBOOK.md      DR 演練步驟
-docs/RTO_RPO.md         RTO/RPO 設計
-docs/FAILOVER_TEST_REPORT.md  演練紀錄模板
+docs/RTO_RPO.md         RTO/RPO 設計與實測結果
+docs/FAILOVER_TEST_REPORT.md  演練紀錄
+docs/screenshots/       演練截圖證據
 scripts/                本機與 AWS CLI 輔助腳本
 ```
 
@@ -33,41 +32,78 @@ scripts/                本機與 AWS CLI 輔助腳本
 
 成功時會看到 Terraform validate 成功，這張可以當作品集截圖。
 
-## 作品集截圖清單
-
-建議在完成一次本地或 AWS demo 後，將以下截圖補到作品集頁面或本 README：
-
-1. **Terraform 驗證截圖**：`./scripts/terraform-check.sh` 顯示 `Success! The configuration is valid.`
-2. **Terraform Plan 截圖**：Primary / DR S3 bucket、versioning、lifecycle、CRR、SNS topic。
-3. **S3 Bucket 截圖**：Primary 與 DR bucket 的 Versioning / Lifecycle / Replication 設定。
-4. **SNS 截圖**：SNS topic 與 email subscription confirmed 狀態（如果有設定 email）。
-5. **網站端點截圖**：Primary endpoint 正常、DR endpoint 備援頁面正常。
-6. **Failover 演練截圖**：`scripts/check-endpoints.sh` 在切換前/切換後的輸出。
-7. **RTO/RPO 紀錄截圖**：`docs/FAILOVER_TEST_REPORT.md` 填寫完成後的演練結果。
-8. **可選擴充截圖**：如果未來有網域並啟用 Route 53，再補 Hosted Zone records 與 Health Check 狀態。
-
 ## 實作步驟總覽
-
-詳細指令請看本回覆下方或 `docs/DR_RUNBOOK.md`。核心流程是：
 
 1. `./scripts/terraform-check.sh`
 2. `./scripts/render-demo-site.sh ./site`
 3. 複製 `examples/s3-sns-crr.tfvars.example` 的值，填入唯一 bucket 名稱與 email
-4. `terraform -chdir=infra plan ...`
-5. `terraform -chdir=infra apply ...`
+4. `terraform -chdir=infra plan`
+5. `terraform -chdir=infra apply`
 6. 確認 SNS email subscription
 7. `scripts/sync-site.sh ./site primary`
-8. 等待 CRR 複製到 DR bucket，或用 AWS Console/CLI 驗證
+8. 等待 CRR 複製到 DR bucket，並用 AWS Console/CLI 驗證
 9. `scripts/check-endpoints.sh`
-10. 宣告 primary 故障，切到 DR endpoint，記錄 RTO/RPO
-11. `terraform -chdir=infra destroy ...` 清除資源
+10. 封鎖 primary public access 模擬 primary website access failure
+11. 改用 DR endpoint，記錄 RTO/RPO
+12. 恢復 primary public access
+13. `terraform -chdir=infra destroy` 清除資源
 
-## 成本與範圍
+## 演練結果摘要
 
-本 Lab 預設建立 S3、CRR 所需 IAM role、SNS topic。這些適合小型 demo，但不是免費；CRR 會產生跨區複製請求、資料傳輸與 DR bucket 儲存成本。請只放小型靜態檔案，演練完執行 destroy。
+| 指標 | 目標 | 實測 | 結果 |
+| --- | --- | --- | --- |
+| RTO | 10 分鐘內 | 1 分 13 秒 | PASS |
+| RPO | 分鐘級 | 0 observed data loss；DR 在部署通知後 26 秒內確認可用 | PASS |
+| SNS 通知 | 送達 | deploy / failover / recovery 三封通知皆有截圖 | PASS |
+| DR endpoint | HTTP 200 | primary 403 時 DR 仍為 HTTP 200 | PASS |
+| Recovery | primary 回復 HTTP 200 | 17:01:02 primary / DR 皆為 HTTP 200 | PASS |
 
-預設仍不建立：
+## 演練證據截圖
 
-- Route 53 / Health Check（因為你目前沒有網域，也會有額外成本）
-- RDS / Aurora（資料庫 DR 與 S3 object DR 邏輯不同，文件中說明但不建立）
-- NAT Gateway、EC2、CloudFront、WAF
+### 1. S3 CRR 與 lifecycle 已啟用
+
+![Primary S3 CRR lifecycle](docs/screenshots/2026-05-18-164456-s3-primary-crr-lifecycle.png)
+
+### 2. Primary 物件版本紀錄
+
+![Primary index version](docs/screenshots/2026-05-18-164807-s3-primary-index-version.png)
+
+### 3. DR bucket lifecycle 狀態
+
+![DR bucket lifecycle](docs/screenshots/2026-05-18-164842-s3-dr-lifecycle-no-outbound-replication.png)
+
+### 4. Primary site baseline 正常
+
+![Primary site healthy](docs/screenshots/2026-05-18-165134-primary-site-healthy-browser.png)
+
+### 5. SNS deploy/start 通知
+
+![SNS deploy start email](docs/screenshots/2026-05-18-165207-sns-deploy-start-email.png)
+
+### 6. Baseline endpoints：primary / DR 皆 HTTP 200
+
+![Baseline endpoint check](docs/screenshots/2026-05-18-165233-endpoints-baseline-primary-dr-200.png)
+
+### 7. 故障注入：primary 403，DR 仍 HTTP 200
+
+![Primary blocked and DR healthy](docs/screenshots/2026-05-18-165540-primary-blocked-dr-200.png)
+
+### 8. SNS failover 通知
+
+![SNS failover email](docs/screenshots/2026-05-18-165653-sns-failover-executed-email.png)
+
+### 9. Recovery endpoint check：primary / DR 回復 HTTP 200
+
+![Recovery endpoint check](docs/screenshots/2026-05-18-170102-endpoints-recovery-primary-dr-200.png)
+
+### 10. SNS recovery 通知
+
+![SNS recovery email](docs/screenshots/2026-05-18-170144-sns-recovery-completed-email.png)
+
+## 成本與清理
+
+本 Lab 使用 S3 bucket、CRR 所需 IAM role、SNS topic 與少量靜態檔案。CRR 會產生跨區複製請求、資料傳輸與 DR bucket 儲存成本；請只放小型 demo 檔案，演練完執行：
+
+```bash
+terraform -chdir=infra destroy
+```

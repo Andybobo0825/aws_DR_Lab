@@ -1,4 +1,4 @@
-# RTO / RPO 設計
+# RTO / RPO 設計與實測結果
 
 ## 定義
 
@@ -9,21 +9,40 @@
 
 | 模式 | RTO 目標 | RPO 目標 | 說明 |
 | --- | --- | --- | --- |
-| S3 + CRR + SNS + 手動切換 | 10 分鐘 | S3 replication 延遲，通常以分鐘計 | 不需要網域；用 DR endpoint 完成演練 |
-| S3 + CRR + SNS + Route 53 Failover | 5 分鐘 | S3 replication 延遲，通常以分鐘計 | 未來有網域時才啟用 |
+| S3 + CRR + SNS + 手動 endpoint failover | 10 分鐘 | S3 replication 延遲，分鐘級 | 用 DR endpoint 完成演練 |
 
-## 量測方式
+## 實測時間線
 
-1. 記錄故障宣告時間 `T0`。
-2. 發送 SNS gameday/failover 通知。
-3. 記錄使用者可從 DR endpoint 取得首頁的時間 `T1`。
-4. RTO = `T1 - T0`。
-5. 比對 primary 與 DR 的 object version、ETag 或發布 commit SHA，估算 RPO。
+| 時間 | 事件 | 證據 |
+| --- | --- | --- |
+| 16:44:56 | Primary bucket lifecycle 與 CRR replication rule 已啟用 | `docs/screenshots/2026-05-18-164456-s3-primary-crr-lifecycle.png` |
+| 16:48:07 | Primary `index.html` 有目前版本紀錄 | `docs/screenshots/2026-05-18-164807-s3-primary-index-version.png` |
+| 16:51:34 | Primary site browser baseline 正常 | `docs/screenshots/2026-05-18-165134-primary-site-healthy-browser.png` |
+| 16:52:07 | SNS 發出演練開始 / deploy notification | `docs/screenshots/2026-05-18-165207-sns-deploy-start-email.png` |
+| 16:52:33 | Baseline endpoint check：primary=200、DR=200 | `docs/screenshots/2026-05-18-165233-endpoints-baseline-primary-dr-200.png` |
+| 16:55:40 | 故障注入後 endpoint check：primary=403、DR=200 | `docs/screenshots/2026-05-18-165540-primary-blocked-dr-200.png` |
+| 16:56:53 | SNS 發出 failover executed notification | `docs/screenshots/2026-05-18-165653-sns-failover-executed-email.png` |
+| 17:01:02 | Recovery endpoint check：primary=200、DR=200 | `docs/screenshots/2026-05-18-170102-endpoints-recovery-primary-dr-200.png` |
+| 17:01:44 | SNS 發出 recovery completed notification | `docs/screenshots/2026-05-18-170144-sns-recovery-completed-email.png` |
 
-## S3 CRR 與 RDS DR 的差異
+## RTO 實測
 
-- S3 CRR：object 層級複製，適合靜態檔案、圖片、前端 build artifact。
-- RDS Snapshot：備份點還原，RTO 通常較長，RPO 取決於最後 snapshot 時間。
-- RDS Read Replica / Aurora Global Database：更接近即時，但需要持續運行資料庫資源，成本較高。
+- `T0`：16:55:40，primary endpoint 變成 HTTP 403，DR endpoint 仍為 HTTP 200。
+- `T1`：16:56:53，SNS failover executed 通知送達，代表操作上已宣告切換到 DR endpoint。
+- **RTO = 1 分 13 秒**。
 
-本作品集 Lab 會說明 RDS 差異，但 IaC 不建立 RDS，避免把低成本 DR Lab 變成資料庫維運專案。
+補充：技術上 DR endpoint 在 `T0` 已可用；本報告採用較保守的「完成 failover 宣告」時間作為 `T1`。
+
+## RPO 實測
+
+- 16:52:07 發出 deploy/start 通知。
+- 16:52:33 endpoint check 已確認 DR endpoint HTTP 200。
+- 從通知到 DR 可用確認的觀測時間為 **26 秒**。
+- 故障發生時，DR endpoint 仍提供可用網站內容，因此本次演練結果為 **0 observed data loss**。
+
+## 結論
+
+| 指標 | 目標 | 實測 | 結果 |
+| --- | --- | --- | --- |
+| RTO | 10 分鐘內 | 1 分 13 秒 | PASS |
+| RPO | 分鐘級 | 0 observed data loss；DR 在 26 秒內確認可用 | PASS |
