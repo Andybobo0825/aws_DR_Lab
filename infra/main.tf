@@ -3,6 +3,11 @@ locals {
   primary_bucket_name = coalesce(var.primary_bucket_name, "${local.name_prefix}-primary-${var.primary_region}")
   dr_bucket_name      = coalesce(var.dr_bucket_name, "${local.name_prefix}-dr-${var.dr_region}")
 
+  route53_delegated_zone_name          = var.route53_delegated_zone_name == null ? null : trimsuffix(var.route53_delegated_zone_name, ".")
+  route53_default_failover_record_name = local.route53_delegated_zone_name == null ? null : "www.${local.route53_delegated_zone_name}"
+  route53_failover_record_name         = try(trimsuffix(coalesce(var.failover_record_name, local.route53_default_failover_record_name), "."), null)
+  route53_failover_zone_id             = var.enable_route53_delegated_zone ? aws_route53_zone.delegated[0].zone_id : var.route53_zone_id
+
   common_tags = merge(
     {
       Project     = var.project_name
@@ -332,6 +337,18 @@ resource "aws_sns_topic_subscription" "gameday_email" {
   endpoint  = var.notification_email
 }
 
+
+resource "aws_route53_zone" "delegated" {
+  count = var.enable_route53_delegated_zone ? 1 : 0
+
+  name    = local.route53_delegated_zone_name
+  comment = "Delegated child zone for the AWS DR gameday lab. Add these NS records in the parent DNS provider."
+
+  tags = merge(local.common_tags, {
+    Role = "route53-delegated-child-zone"
+  })
+}
+
 resource "aws_route53_health_check" "primary_site" {
   count = var.enable_route53_failover ? 1 : 0
 
@@ -351,8 +368,8 @@ resource "aws_route53_health_check" "primary_site" {
 resource "aws_route53_record" "primary_failover" {
   count = var.enable_route53_failover ? 1 : 0
 
-  zone_id = var.route53_zone_id
-  name    = var.failover_record_name
+  zone_id = local.route53_failover_zone_id
+  name    = local.route53_failover_record_name
   type    = "CNAME"
   ttl     = 60
 
@@ -369,8 +386,8 @@ resource "aws_route53_record" "primary_failover" {
 resource "aws_route53_record" "dr_failover" {
   count = var.enable_route53_failover ? 1 : 0
 
-  zone_id = var.route53_zone_id
-  name    = var.failover_record_name
+  zone_id = local.route53_failover_zone_id
+  name    = local.route53_failover_record_name
   type    = "CNAME"
   ttl     = 60
 

@@ -38,6 +38,27 @@ output "route53_failover_enabled" {
   value       = var.enable_route53_failover
 }
 
+
+output "route53_delegated_zone_id" {
+  description = "Route 53 delegated child hosted zone ID. Null when enable_route53_delegated_zone=false."
+  value       = try(aws_route53_zone.delegated[0].zone_id, null)
+}
+
+output "route53_delegated_zone_name_servers" {
+  description = "Name servers to create as NS records in the Cloudflare parent zone for the delegated child domain."
+  value       = try(aws_route53_zone.delegated[0].name_servers, [])
+}
+
+output "route53_failover_record_name" {
+  description = "Route 53 failover DNS record name. Null when Route 53 failover is disabled."
+  value       = var.enable_route53_failover ? local.route53_failover_record_name : null
+}
+
+output "route53_primary_health_check_id" {
+  description = "Primary website Route 53 health check ID. Null when Route 53 failover is disabled."
+  value       = try(aws_route53_health_check.primary_site[0].id, null)
+}
+
 output "sns_notifications_enabled" {
   description = "Whether optional SNS gameday notifications are enabled."
   value       = var.enable_sns_notifications

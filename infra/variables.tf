@@ -91,6 +91,18 @@ variable "additional_tags" {
   default     = {}
 }
 
+variable "enable_route53_delegated_zone" {
+  description = "Create a Route 53 public hosted zone for a delegated child domain, for example dr.example.com. Add the output NS records to the parent zone in Cloudflare."
+  type        = bool
+  default     = false
+}
+
+variable "route53_delegated_zone_name" {
+  description = "Child DNS zone to create in Route 53 when enable_route53_delegated_zone=true, for example dr.example.com."
+  type        = string
+  default     = null
+}
+
 variable "enable_route53_failover" {
   description = "Create optional Route 53 DNS failover records and a primary website health check. Disabled by default because health checks are paid resources."
   type        = bool
@@ -98,13 +110,13 @@ variable "enable_route53_failover" {
 }
 
 variable "route53_zone_id" {
-  description = "Hosted zone ID for optional Route 53 failover records. Required only when enable_route53_failover is true."
+  description = "Existing hosted zone ID for optional Route 53 failover records. Leave null when enable_route53_delegated_zone=true."
   type        = string
   default     = null
 }
 
 variable "failover_record_name" {
-  description = "DNS record name for optional Route 53 failover, for example www.example.com. Required only when enable_route53_failover is true."
+  description = "DNS record name for optional Route 53 failover, for example www.dr.example.com. Defaults to www.<route53_delegated_zone_name> when a delegated zone is created."
   type        = string
   default     = null
 }

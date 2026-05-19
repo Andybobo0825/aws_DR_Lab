@@ -19,8 +19,15 @@ replicate_delete_markers  = false
 # Optional: set your email, then confirm the subscription email from AWS SNS.
 notification_email = "your-email@example.com"
 
-# No domain required for this lab.
+# No domain required for the low-cost lab baseline.
 enable_route53_failover = false
+
+# Optional advanced DNS lab: delegate a Cloudflare child domain to Route 53.
+# This creates a public Route 53 hosted zone and outputs NS records for Cloudflare.
+# enable_route53_delegated_zone = true
+# route53_delegated_zone_name   = "dr.example.com"
+# enable_route53_failover       = true
+# failover_record_name          = "www.dr.example.com"
 
 # RDS is documented but not created by this S3 object DR lab.
 enable_rds_restore_demo = false
